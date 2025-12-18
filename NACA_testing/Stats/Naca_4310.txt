@@ -1,0 +1,9 @@
+Final lift:	0.0009472202784581821
+Final drag:	0.0006469536882719042
+Final LdR: 	1.4641237783006202
+Ended on step number 2209 at u-speed 0.1
+Sigmoid scaling: False
+Thickness: 0.2
+Interpolation method: p
+Inverted: False
+Wing defined with naca code 4310
