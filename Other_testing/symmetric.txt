@@ -1,0 +1,10 @@
+Final lift:	-1.4653669987499396e-19
+Final drag:	0.000337945633521749
+Final LdR: 	-4.336102773334498e-16
+Ended on step number 1964 at u-speed 0.1
+Sigmoid scaling: True
+Thickness: 0.175
+Interpolation method: p
+Inverted: False
+Upper parameters: [0.3 0.  0.1]
+Lower parameters: [0.3 0.  0.1]
