@@ -1,5 +1,5 @@
 import numpy as np
-from system_class_current import System
+from system_class import System
 from helper_functions import two_field_divergence
 from time import time
 
@@ -27,8 +27,9 @@ upper = np.array([0.3, 0.5, 0.25, 0.05, -0.2])
 lower = np.array([-0.2, -0.1, -0.15, -0.2, -0.4])
 
 # Wing
-# syst.add_wing(naca_code='3312', naca_points=200, thickness=0.2, interpolation_method='p', scale=False, inverted=False)
-syst.add_wing(upper_height_params=upper, lower_height_params=lower, interpolation_method='c', scale=True, thickness=0.2)
+# syst.add_wing(naca_code='5315', naca_points=200, thickness=0.2, interpolation_method='p', scale=False)
+syst.add_wing(upper_height_params=upper, lower_height_params=lower, interpolation_method='c', scale=True, thickness=1.5)
+
 syst.build_jacobi_step_matrix()
 syst.set_influence_sections()
 
@@ -38,11 +39,8 @@ ax[syst.simple_points] = 0.005
 ay = np.zeros_like(syst.v)
 syst.set_body_accelerations(ax, ay)
 
+
 start = time()
-
-cutoff = 0.05
-drags = []
-
 while syst.ramping:
     syst.motion_step()
     iters = syst.pressure_step(tol=1e-7, rel_tol=1e-3, max_iters=1000)
@@ -60,7 +58,6 @@ while syst.ramping:
             print(f'Force calculations: Lift={lift}, Drag={drag}, L/D={lift/drag:.3f}')
 
 
-print(drags)
 # Saving final details
 syst.save_state('test_run.npz')
 syst.save_final_stats('test_run.txt')
