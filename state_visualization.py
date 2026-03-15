@@ -1,16 +1,19 @@
 import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
-import pandas as pd
 
 from helper_functions import load_state
 
+paths = {'Naca 5315': f'./NACA_testing/States/Naca_5315.npz',
+         'Naca 4310': f'./NACA_testing/States/Naca_4310.npz',
+         'Naca 6415': f'./NACA_testing/States/Naca_6415.npz',
+         'Custom airfoil':'./Other_testing/designed.npz',
+         'Symmetric airfoil': './Other_testing/symmetric.npz'}
 
-# u, v, p, X, Y, wing_points = load_state('./Paper_resources/designed.npz')
 
-df = pd.read_csv('./NACA_testing/naca_results_df.csv', index_col='codes')
-code = 5315
-u, v, p, X, Y, wing_points = load_state(f'./NACA_testing/States/Naca_{code}.npz')
+key = 'Naca 5315' # Specify a key to see its state plot
+
+u, v, p, X, Y, wing_points = load_state(paths[key])
 
 
 fig, ax = plt.subplots(figsize=(8, 8))
@@ -40,10 +43,8 @@ ax.quiver(Xp, Yp, up, vp)
 ax.set_xlabel('X (m)', fontsize=12)
 ax.set_ylabel('Y (m)', fontsize=12)
 
-# ax.set_title('Custom airfoil: L/D=1.225', fontsize=15)
-ax.set_title(f'NACA airfoil {code}: L/D={df.loc[code, 'ldr']:.3f}', fontsize=15)
+
+ax.set_title(key, fontsize=15)
 
 plt.show()
-# plt.savefig(f'./Paper_resources/designed.png', dpi=300, bbox_inches='tight')
-# plt.savefig(f'./Paper_resources/Naca_{code}.png', dpi=300, bbox_inches='tight')
 
