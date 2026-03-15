@@ -4,8 +4,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import scipy as sc
 
-from helper_functions import masked_neighbors_centered, two_field_divergence
-from obstacle_classes import Wing
+from helper_functions import two_field_divergence
+from wing_class import Wing
 
 
 class System:
@@ -200,77 +200,6 @@ class System:
     # Pressure Solving
     # -----------------
 
-    def pressure_poisson_RHS(self):
-        """We rearrange the Navier Stokes and discretize the velocity time derivative. Taking the divergence
-        of the resulting vector equation and assuming ∇·u(n+1) = 0, we obtain a Poisson equation for the pressure
-        field. This function builds the constant right hand side (RHS) to fit the pressure Poisson field to"""
-
-        star_x = np.empty_like(self.u)
-        star_y = np.empty_like(self.u)
-
-        # Building components of the vector equation rearranged for u_n+1
-
-        # central block
-        star_x[1:-1, 1:-1] = self.u[1:-1, 1:-1] / self.dt - (
-            self.u[1:-1, 1:-1] * (self.u[1:-1, 1:-1] - self.u[:-2, 1:-1]) / (self.dx)
-            + self.v[1:-1, 1:-1] * (self.u[1:-1, 2:] - self.u[1:-1, :-2]) / (2 * self.dy)
-            - self.nu * ((self.u[2:, 1:-1] - 2 * self.u[1:-1, 1:-1] + self.u[:-2, 1:-1]) / (self.dx ** 2))
-            - self.nu * ((self.u[1:-1, 2:] - 2 * self.u[1:-1, 1:-1] + self.u[1:-1, :-2]) / (self.dy ** 2))
-            - self.ax[1:-1, 1:-1])
-
-        star_y[1:-1, 1:-1] = self.v[1:-1, 1:-1] / self.dt - (
-            self.u[1:-1, 1:-1] * (self.v[1:-1, 1:-1] - self.v[:-2, 1:-1]) / (self.dx)
-            + self.v[1:-1, 1:-1] * (self.v[1:-1, 2:] - self.v[1:-1, :-2]) / (2 * self.dy)
-            - self.nu * ((self.v[2:, 1:-1] - 2 * self.v[1:-1, 1:-1] + self.v[:-2, 1:-1]) / (self.dx ** 2))
-            - self.nu * ((self.v[1:-1, 2:] - 2 * self.v[1:-1, 1:-1] + self.v[1:-1, :-2]) / (self.dy ** 2))
-            - self.ay[1:-1, 1:-1])
-
-        # edges
-        star_x[1:-1, 0] = self.u[1:-1, 0] / self.dt - (
-            self.u[1:-1, 0] * (self.u[1:-1, 0] - self.u[:-2, 0]) / (self.dx)
-            + self.v[1:-1, 0] * (self.u[1:-1, 1] - self.u[1:-1, -1]) / (2 * self.dy)
-            - self.nu * ((self.u[2:, 0] - 2 * self.u[1:-1, 0] + self.u[:-2, 0]) / (self.dx ** 2))
-            - self.nu * ((self.u[1:-1, 1] - 2 * self.u[1:-1, 0] + self.u[1:-1, -1]) / (self.dy ** 2))
-            - self.ax[1:-1, 0])
-
-        star_x[1:-1, -1] = self.u[1:-1, 0] / self.dt - (
-            self.u[1:-1, -1] * (self.u[1:-1, -1] - self.u[:-2, -1]) / (self.dx)
-            + self.v[1:-1, -1] * (self.u[1:-1, 0] - self.u[1:-1, -2]) / (2 * self.dy)
-            - self.nu * ((self.u[2:, -1] - 2 * self.u[1:-1, -1] + self.u[:-2, -1]) / (self.dx ** 2))
-            - self.nu * ((self.u[1:-1, 0] - 2 * self.u[1:-1, -1] + self.u[1:-1, -2]) / (self.dy ** 2))
-            - self.ax[1:-1, -1])
-
-        star_y[1:-1, 0] = self.v[1:-1, 0] / self.dt - (
-            self.u[1:-1, 0] * (self.v[1:-1, 0] - self.v[:-2, 0]) / (self.dx)
-            + self.v[1:-1, 0] * (self.v[1:-1, 1] - self.v[1:-1, -1]) / (2 * self.dy)
-            - self.nu * ((self.v[2:, 0] - 2 * self.v[1:-1, 0] + self.v[:-2, 0]) / (self.dx ** 2))
-            - self.nu * ((self.v[1:-1, 1] - 2 * self.v[1:-1, 0] + self.v[1:-1, -1]) / (self.dy ** 2))
-            - self.ay[1:-1, 0])
-
-        star_y[1:-1, -1] = self.v[1:-1, -1] / self.dt - (
-            self.u[1:-1, -1] * (self.v[1:-1, -1] - self.v[:-2, -1]) / (self.dx)
-            + self.v[1:-1, -1] * (self.v[1:-1, 0] - self.v[1:-1, -2]) / (2 * self.dy)
-            - self.nu * ((self.v[2:, -1] - 2 * self.v[1:-1, -1] + self.v[:-2, -1]) / (self.dx ** 2))
-            - self.nu * ((self.v[1:-1, 0] - 2 * self.v[1:-1, -1] + self.v[1:-1, -2]) / (self.dy ** 2))
-            - self.ay[1:-1, -1])
-
-        # Wrap pad on left and right
-        star_x[0] = star_x[-2]
-        star_x[-1] = star_x[1]
-        star_y[0] = star_y[-2]
-        star_y[-1] = star_y[0]
-
-        assert np.sum(star_x[self.wing_mask]) + np.sum(star_y[self.wing_mask]) < 0.0001, f"Star RHS values in wing growing at step {self.step_num}"
-
-        # Pressure poisson has RHS = rho * divergence of vector components above
-        RHS = self.rho * two_field_divergence(star_x, star_y, self.dx, self.dy)
-
-        a = np.sum(RHS)
-        assert not np.isnan(a), f"NaN in Poisson RHS at step {self.step_num}"
-        assert not any((np.isinf(a), np.isneginf(a))), f"Inf in Poisson RHS at step {self.step_num}"
-        return RHS
-
-
     def build_jacobi_step_matrix(self, verbose=False):
         """Builds a matrix representation that takes in a flattened vector of the current pressure iteration
         and applies one Jacobi step involving the four spatial neighbors. Matrix is very sparse, so it is
@@ -387,6 +316,77 @@ class System:
             print(f"Jacobi stepping matrix takes {(self.jacobi_matrix.data.nbytes + self.jacobi_matrix.indptr.nbytes + self.jacobi_matrix.indices.nbytes)/2**20:.3f} Mb")
 
 
+    def pressure_poisson_RHS(self):
+        """We rearrange the Navier Stokes and discretize the velocity time derivative. Taking the divergence
+        of the resulting vector equation and assuming ∇·u(n+1) = 0, we obtain a Poisson equation for the pressure
+        field. This function builds the constant right hand side (RHS) to fit the pressure Poisson field to"""
+
+        star_x = np.empty_like(self.u)
+        star_y = np.empty_like(self.u)
+
+        # Building components of the vector equation rearranged for u_n+1
+
+        # central block
+        star_x[1:-1, 1:-1] = self.u[1:-1, 1:-1] / self.dt - (
+            self.u[1:-1, 1:-1] * (self.u[1:-1, 1:-1] - self.u[:-2, 1:-1]) / (self.dx)
+            + self.v[1:-1, 1:-1] * (self.u[1:-1, 2:] - self.u[1:-1, :-2]) / (2 * self.dy)
+            - self.nu * ((self.u[2:, 1:-1] - 2 * self.u[1:-1, 1:-1] + self.u[:-2, 1:-1]) / (self.dx ** 2))
+            - self.nu * ((self.u[1:-1, 2:] - 2 * self.u[1:-1, 1:-1] + self.u[1:-1, :-2]) / (self.dy ** 2))
+            - self.ax[1:-1, 1:-1])
+
+        star_y[1:-1, 1:-1] = self.v[1:-1, 1:-1] / self.dt - (
+            self.u[1:-1, 1:-1] * (self.v[1:-1, 1:-1] - self.v[:-2, 1:-1]) / (self.dx)
+            + self.v[1:-1, 1:-1] * (self.v[1:-1, 2:] - self.v[1:-1, :-2]) / (2 * self.dy)
+            - self.nu * ((self.v[2:, 1:-1] - 2 * self.v[1:-1, 1:-1] + self.v[:-2, 1:-1]) / (self.dx ** 2))
+            - self.nu * ((self.v[1:-1, 2:] - 2 * self.v[1:-1, 1:-1] + self.v[1:-1, :-2]) / (self.dy ** 2))
+            - self.ay[1:-1, 1:-1])
+
+        # edges
+        star_x[1:-1, 0] = self.u[1:-1, 0] / self.dt - (
+            self.u[1:-1, 0] * (self.u[1:-1, 0] - self.u[:-2, 0]) / (self.dx)
+            + self.v[1:-1, 0] * (self.u[1:-1, 1] - self.u[1:-1, -1]) / (2 * self.dy)
+            - self.nu * ((self.u[2:, 0] - 2 * self.u[1:-1, 0] + self.u[:-2, 0]) / (self.dx ** 2))
+            - self.nu * ((self.u[1:-1, 1] - 2 * self.u[1:-1, 0] + self.u[1:-1, -1]) / (self.dy ** 2))
+            - self.ax[1:-1, 0])
+
+        star_x[1:-1, -1] = self.u[1:-1, 0] / self.dt - (
+            self.u[1:-1, -1] * (self.u[1:-1, -1] - self.u[:-2, -1]) / (self.dx)
+            + self.v[1:-1, -1] * (self.u[1:-1, 0] - self.u[1:-1, -2]) / (2 * self.dy)
+            - self.nu * ((self.u[2:, -1] - 2 * self.u[1:-1, -1] + self.u[:-2, -1]) / (self.dx ** 2))
+            - self.nu * ((self.u[1:-1, 0] - 2 * self.u[1:-1, -1] + self.u[1:-1, -2]) / (self.dy ** 2))
+            - self.ax[1:-1, -1])
+
+        star_y[1:-1, 0] = self.v[1:-1, 0] / self.dt - (
+            self.u[1:-1, 0] * (self.v[1:-1, 0] - self.v[:-2, 0]) / (self.dx)
+            + self.v[1:-1, 0] * (self.v[1:-1, 1] - self.v[1:-1, -1]) / (2 * self.dy)
+            - self.nu * ((self.v[2:, 0] - 2 * self.v[1:-1, 0] + self.v[:-2, 0]) / (self.dx ** 2))
+            - self.nu * ((self.v[1:-1, 1] - 2 * self.v[1:-1, 0] + self.v[1:-1, -1]) / (self.dy ** 2))
+            - self.ay[1:-1, 0])
+
+        star_y[1:-1, -1] = self.v[1:-1, -1] / self.dt - (
+            self.u[1:-1, -1] * (self.v[1:-1, -1] - self.v[:-2, -1]) / (self.dx)
+            + self.v[1:-1, -1] * (self.v[1:-1, 0] - self.v[1:-1, -2]) / (2 * self.dy)
+            - self.nu * ((self.v[2:, -1] - 2 * self.v[1:-1, -1] + self.v[:-2, -1]) / (self.dx ** 2))
+            - self.nu * ((self.v[1:-1, 0] - 2 * self.v[1:-1, -1] + self.v[1:-1, -2]) / (self.dy ** 2))
+            - self.ay[1:-1, -1])
+
+        # Wrap pad on left and right
+        star_x[0] = star_x[-2]
+        star_x[-1] = star_x[1]
+        star_y[0] = star_y[-2]
+        star_y[-1] = star_y[0]
+
+        assert np.sum(star_x[self.wing_mask]) + np.sum(star_y[self.wing_mask]) < 0.0001, f"Star RHS values in wing growing at step {self.step_num}"
+
+        # Pressure poisson has RHS = rho * divergence of vector components above
+        RHS = self.rho * two_field_divergence(star_x, star_y, self.dx, self.dy)
+
+        a = np.sum(RHS)
+        assert not np.isnan(a), f"NaN in Poisson RHS at step {self.step_num}"
+        assert not any((np.isinf(a), np.isneginf(a))), f"Inf in Poisson RHS at step {self.step_num}"
+        return RHS
+
+
     def pressure_step(self, tol=1e-7, rel_tol=1e-3, max_iters=1000):
         """
         Jacobi/ω-Jacobi iteration on pressure Poisson equation:
@@ -429,19 +429,6 @@ class System:
         # Save pressure, removing pressure drift
         p_n -= np.mean(p_n)
         self.p = p_n
-
-        # Velocity projection: u <- u - dt/rho * ∇p  (masked gradients near solid)
-        '''p_im, p_ip, p_jm, p_jp = masked_neighbors_centered(self.p, fluid)
-
-        self.u = self.u - self.dt * (p_ip - p_im) / (2 * self.dx) / self.rho
-        self.v = self.v - self.dt * (p_jp - p_jm) / (2 * self.dy) / self.rho
-
-        if self.has_wing:
-            # Enforce no-slip again after projection
-            self.u[self.boundary_mask] = 0.0
-            self.v[self.boundary_mask] = 0.0
-            self.u[self.wing_mask] = 0.0
-            self.v[self.wing_mask] = 0.0'''
 
         # Sanity
         a = np.sum(self.p)
